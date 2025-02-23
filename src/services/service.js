@@ -33,7 +33,7 @@ export const insertAnalyticsEvents = async (events) => {
             };
             // Ajout de l'article à la liste via $addToSet si articleId est présent
             if (event.articleId) {
-                updateObj.$push = { articleIds: event.articleId };
+                updateObj.$addToSet = { articleIds: event.articleId };
             }
 
             // Opération upsert qui met à jour ou insère un document
