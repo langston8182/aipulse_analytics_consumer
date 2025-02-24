@@ -11,11 +11,9 @@ export const handler = async (event, context) => {
         // Établir la connexion à la base de données
         await connectToDatabase(MONGODB_URI);
 
-        // Traiter chaque enregistrement du flux Kinesis
+        // Traiter chaque enregistrement du flux SQS
         const records = event.Records.map(record => {
-            // Décoder et parser le payload de Kinesis
-            const payload = Buffer.from(record.kinesis.data, 'base64').toString('utf-8');
-            return JSON.parse(payload);
+            return JSON.parse(record.body);
         });
 
         // Appeler le contrôleur pour traiter les enregistrements
