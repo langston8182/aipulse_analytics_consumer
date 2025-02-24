@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from '../models/model.js';
+import { AnalyticsEvent } from '../models/model.mjs';
 
 export const insertAnalyticsEvents = async (events) => {
     try {
@@ -25,10 +25,10 @@ export const insertAnalyticsEvents = async (events) => {
                     country: event.country,
                 },
                 $inc: {
-                    "actions.shares.facebook": (event.actions && event.actions.shares && event.actions.shares.facebook) ? event.actions.shares.facebook : 0,
-                    "actions.shares.linkedin": (event.actions && event.actions.shares && event.actions.shares.linkedin) ? event.actions.shares.linkedin : 0,
-                    "actions.shares.x": (event.actions && event.actions.shares && event.actions.shares.x) ? event.actions.shares.x : 0,
-                    "actions.clicks": (event.actions && event.actions.clicks) ? event.actions.clicks : 0,
+                    "actions.shares.facebook": event.actions?.shares?.facebook || 0,
+                    "actions.shares.linkedin": event.actions?.shares?.linkedin || 0,
+                    "actions.shares.x": event.actions?.shares?.x || 0,
+                    "actions.clicks": event.actions?.clicks || 0,
                 }
             };
             // Ajout de l'article à la liste via $addToSet si articleId est présent
@@ -48,7 +48,7 @@ export const insertAnalyticsEvents = async (events) => {
         }
         console.log(`${events.length} événements traités (mis à jour ou insérés).`);
     } catch (error) {
-        console.error('Erreur lors de l\'insertion/mise à jour des événements :', error);
+        console.error("Erreur lors de l'insertion/mise à jour des événements :", error);
         throw error;
     }
 };

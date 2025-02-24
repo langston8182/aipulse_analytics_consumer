@@ -1,5 +1,5 @@
-import { insertAnalyticsEvents } from '../services/service.js';
-import { AnalyticsEvent } from '../models/model.js';
+import { insertAnalyticsEvents } from '../services/service.mjs';
+import { AnalyticsEvent } from '../models/model.mjs';
 
 export const analyticsController = async (records) => {
     try {
