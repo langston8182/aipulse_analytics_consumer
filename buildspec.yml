@@ -15,6 +15,8 @@ phases:
     commands:
       - echo "Updating Lambda function code..."
       - |
+        SQS_ARN_PREPROD="arn:aws:sqs:eu-west-3:489767271637:ai-pulse-analytics-preprod"
+        SQS_ARN_PROD="arn:aws:sqs:eu-west-3:489767271637:ai-pulse-analytics-prod"
         FUNCTION_NAME="ai-pulse-analytics-consumer"
         REGION="eu-west-3"
         # Mise à jour du code de la Lambda
@@ -26,11 +28,89 @@ phases:
         # Attendre la fin de la mise à jour avant de publier une version
         echo "Waiting for Lambda update to complete..."
         aws lambda wait function-updated --function-name $FUNCTION_NAME --region $REGION
+        
+        # Récupérer les variables d'environnement existantes
+        EXISTING_ENV=$(aws lambda get-function-configuration \
+        --function-name $FUNCTION_NAME \
+        --region $REGION \
+        --query 'Environment.Variables' \
+        --output json)
+        
+        # Ajouter/modifier la variable ENVIRONMENT
+        UPDATED_ENV=$(echo $EXISTING_ENV | jq '. + {"ENVIRONMENT": "prod"}')
+        
+        # Mettre à jour la variable d'environnement ENVIRONMENT sur la future version LATEST - 1
+        echo "Updating Lambda environment variables..."
+        aws lambda update-function-configuration \
+        --function-name $FUNCTION_NAME \
+        --region $REGION \
+        --environment "{\"Variables\":$UPDATED_ENV}"
+        
+        echo "Waiting for Lambda update to complete..."
+        aws lambda wait function-updated --function-name $FUNCTION_NAME --region $REGION
+        
+        # change SQS trigger
+        # Récupérer l'UUID du trigger actuel (s'il existe)
+        TRIGGER_UUID=$(aws lambda list-event-source-mappings \
+          --function-name $FUNCTION_NAME \
+          --region $REGION \
+          --query "EventSourceMappings[?EventSourceArn=='$SQS_ARN'].UUID" \
+          --output text)
+        # Supprimer l'ancien mapping si nécessaire
+        if [ -n "$TRIGGER_UUID" ]; then
+          echo "Removing old SQS trigger: $TRIGGER_UUID"
+          aws lambda delete-event-source-mapping --uuid $TRIGGER_UUID --region $REGION
+          sleep 5  # Attendre quelques secondes pour éviter les conflits
+        fi
+        # Créer un nouveau mapping vers la bonne SQS
+        echo "Creating new SQS trigger for Lambda..."
+        aws lambda create-event-source-mapping \
+          --function-name $FUNCTION_NAME \
+          --event-source-arn $SQS_ARN_PROD \
+          --region $REGION \
+          --batch-size 10
+        
+        echo "Waiting for Lambda update to complete..."
+        aws lambda wait function-updated --function-name $FUNCTION_NAME --region $REGION    
 
         # Publier une nouvelle version après la mise à jour
         echo "Publishing new Lambda version..."
         VERSION=$(aws lambda publish-version --function-name $FUNCTION_NAME --region $REGION --query 'Version' --output text)
         echo "New version published: $VERSION"
+        
+        # Ajouter/modifier la variable ENVIRONMENT
+        UPDATED_ENV=$(echo $EXISTING_ENV | jq '. + {"ENVIRONMENT": "preprod"}')
+        
+        # Mettre à jour la variable d'environnement ENVIRONMENT sur la version LATEST
+        echo "Updating Lambda environment variables..."
+        aws lambda update-function-configuration \
+        --function-name $FUNCTION_NAME \
+        --region $REGION \
+        --environment "{\"Variables\":$UPDATED_ENV}"
+        
+         echo "Waiting for Lambda update to complete..."
+        aws lambda wait function-updated --function-name $FUNCTION_NAME --region $REGION 
+        
+        # change SQS trigger
+        # Récupérer l'UUID du trigger actuel (s'il existe)
+        TRIGGER_UUID=$(aws lambda list-event-source-mappings \
+          --function-name $FUNCTION_NAME \
+          --region $REGION \
+          --query "EventSourceMappings[?EventSourceArn=='$SQS_ARN'].UUID" \
+          --output text)
+        # Supprimer l'ancien mapping si nécessaire
+        if [ -n "$TRIGGER_UUID" ]; then
+          echo "Removing old SQS trigger: $TRIGGER_UUID"
+          aws lambda delete-event-source-mapping --uuid $TRIGGER_UUID --region $REGION
+          sleep 5  # Attendre quelques secondes pour éviter les conflits
+        fi
+        # Créer un nouveau mapping vers la bonne SQS
+        echo "Creating new SQS trigger for Lambda..."
+        aws lambda create-event-source-mapping \
+          --function-name $FUNCTION_NAME \
+          --event-source-arn $SQS_ARN_PREPROD \
+          --region $REGION \
+          --batch-size 10 
 
 artifacts:
   type: zip
