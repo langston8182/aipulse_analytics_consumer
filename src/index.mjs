@@ -7,8 +7,14 @@ export const handler = async (event, context) => {
     context.callbackWaitsForEmptyEventLoop = false;
 
     try {
-        // Établir la connexion à la base de données
-        await connectToDatabase(MONGODB_URI);
+        // 1. Connexion MongoDB
+        const env = process.env.ENVIRONMENT || "preprod";
+        const dbUri = env === "prod" ? process.env.MONGODB_URI_PROD : process.env.MONGODB_URI_PREPROD;
+
+        if (!dbUri) {
+            throw new Error(`Aucune URI MongoDB définie pour l'environnement ${env}`);
+        }
+        await connectToDatabase(dbUri);
 
         // Traiter chaque enregistrement du flux SQS
         const records = event.Records.map(record => {
